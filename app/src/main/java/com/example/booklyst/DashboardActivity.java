@@ -20,6 +20,11 @@ import androidx.navigation.ui.NavigationUI;
 import com.google.android.material.navigation.NavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -37,7 +42,14 @@ public class DashboardActivity extends AppCompatActivity {
     private TextView displayName, displayEmail;
     private ImageView displayProfileImage;
     private FirebaseAuth mAuth;
-    FirebaseUser user;
+    private DatabaseReference databaseReference;
+    private FirebaseAuth.AuthStateListener mAuthListener;
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        mAuth.addAuthStateListener(mAuthListener);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,7 +58,6 @@ public class DashboardActivity extends AppCompatActivity {
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        mAuth = FirebaseAuth.getInstance();
 
 
         FloatingActionButton fab = findViewById(R.id.fab);
@@ -61,16 +72,32 @@ public class DashboardActivity extends AppCompatActivity {
         NavigationView navigationView = findViewById(R.id.nav_view);
         View headerView = navigationView.getHeaderView(0);
 
-        user = mAuth.getCurrentUser();
+        mAuth = FirebaseAuth.getInstance();
+        databaseReference = FirebaseDatabase.getInstance().getReference("Users");
+
+        mAuthListener = new FirebaseAuth.AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                if(firebaseAuth.getCurrentUser()==null) {
+                    startActivity(new Intent(DashboardActivity.this, MainActivity.class));
+                } else {
+                    User user = new User(firebaseAuth.getCurrentUser().getUid(), firebaseAuth.getCurrentUser().getDisplayName(), firebaseAuth.getCurrentUser().getEmail(), firebaseAuth.getCurrentUser().getPhotoUrl().toString());
+                    databaseReference.child(firebaseAuth.getCurrentUser().getUid()).setValue(user);
+                }
+            }
+        };
 
         displayName = (TextView) headerView.findViewById(R.id.displayName);
         displayEmail = (TextView) headerView.findViewById(R.id.displayEmail);
         displayProfileImage = (ImageView) headerView.findViewById(R.id.displayProfileImage);
 
+        final FirebaseUser user = mAuth.getCurrentUser();
+
         displayName.setText(user.getDisplayName());
         displayEmail.setText(user.getEmail());
-        // System.out.println(user.getProviderId());
         Glide.with(this).load(user.getPhotoUrl()).into(displayProfileImage);
+
+
         // Passing each menu ID as a set of Ids because each
         // menu should be considered as top level destinations.
         mAppBarConfiguration = new AppBarConfiguration.Builder(
